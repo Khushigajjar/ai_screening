@@ -1,5 +1,6 @@
 import pdfplumber
 import re
+import os
 
 def extract_email(text):
     pattern = r"[a-zA-Z0-9\._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
@@ -22,16 +23,28 @@ def parse_resume(file_path):
     email = extract_email(text)
     contact = extract_phone(text)
 
-    data =  {"Email :" :email , "Contact : ": contact}
+    data = {"file_name" : os.path.basename(file_path), 
+            "Email" : email , 
+            "Contact" : contact}
 
-    for key,value in data.items():
-        print(f"{key} : {value}")
+    return data
 
     
 
 
-file_path = "D://INTERN-PARAM//AI Screening//Resumes//Resume.pdf"
-result = parse_resume(file_path)
+folder = "./Resumes"
+parsed_data = []
 
+for file_name in os.listdir(folder):
+    file_path = os.path.join(folder, file_name)
+    result = parse_resume(file_path)
+    parsed_data.append(result)
+
+
+for i in parsed_data:
+    print(f"File: {i['file_name']}")
+    print(f"Email : {i["Email"]}")
+    print(f"Contact : {i["Contact"]}")
+    print("-"*40)
 
     
