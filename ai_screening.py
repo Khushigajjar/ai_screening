@@ -41,32 +41,29 @@ def extract_skills(text, job_description):
 
 
 def parse_resume(file_path):
-    with pdfplumber.open(file_path) as pdf :
+    with pdfplumber.open(file_path) as pdf:
         text = ""
         for page in pdf.pages:
             page_text = page.extract_text(x_tolerance=2)
             if page_text:
-                text = text + page_text + "\n"
-
-                print(text)
+                text += page_text + "\n"
 
     email = extract_email(text)
     contact = extract_phone(text)
-    job_description = "Python, Machine Learning, and Data Analysis"
+    job_description = "cybersecurity, technology"
 
+    extracted_skills, similarity_score, res_keywords = extract_skills(text, job_description)
 
-    similarity_score, extracted_skills, res_keywords = extract_skills(text, job_description)
-
-
-
-    data = {"file_name" : os.path.basename(file_path), 
-            "Email" : email , 
-            "Contact" : contact,
-            "Similarity_score" : similarity_score,
-            "Skills" : extracted_skills,
-            "Keywords" : res_keywords}
+    data = {
+        "file_name": os.path.basename(file_path),
+        "Email": email,
+        "Contact": contact,
+        "Similarity_score": similarity_score,
+        "Skills_Set": extracted_skills,
+    }
 
     return data
+
 
 folder = "./Resumes"
 parsed_data = []
@@ -81,9 +78,9 @@ for i in parsed_data:
     print(f"File: {i['file_name']}")
     print(f"Email : {i['Email']}")
     print(f"Contact : {i['Contact']}")
-    print(f"Similarity_score : {i["Similarity_score"]*100:.2f}%")
-    print(f"Skills : {i["Skills"]}")
-    print(f"res_keywords: {i["res_keywords"]}")
+    print(f"Similarity_score : {i['Similarity_score']*100:.2f}%")
+    print(f"Skills : {i['Skills_Set']}")
     print("-" * 40)
+
 
     

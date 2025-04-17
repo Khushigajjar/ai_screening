@@ -1,10 +1,12 @@
 {
     "cSpell.words": [
         "cffi",
+        "lemmatizer",
         "pdfminer",
         "pdfplumber",
         "pycparser",
         "pypdfium",
+        "stopwords",
         "Tfidf",
         "Vectorizer"
     ]
