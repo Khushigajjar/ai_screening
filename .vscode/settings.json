@@ -1,13 +1,18 @@
 {
     "cSpell.words": [
         "cffi",
+        "fitz",
+        "lemmatize",
         "lemmatizer",
+        "ngram",
         "pdfminer",
         "pdfplumber",
         "pycparser",
         "pypdfium",
         "stopwords",
+        "synsets",
         "Tfidf",
-        "Vectorizer"
+        "Vectorizer",
+        "wordnet"
     ]
 }
