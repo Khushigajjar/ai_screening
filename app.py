@@ -6,7 +6,7 @@ import zipfile
 import tempfile
 import pandas as pd
 import streamlit as st
-import phonenumbers
+import phonenumbers # type:ignore
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -52,7 +52,7 @@ def calculate_similarity(job_description, resume_text):
     job_description = preprocess_text(job_description)
     resume_text = preprocess_text(resume_text)
 
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(ngram_range=(1,2))
     tfidf_matrix = vectorizer.fit_transform([job_description, resume_text])
     similarity_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
 
@@ -72,27 +72,41 @@ def get_synonyms(word):
             synonyms.add(lemma.name().lower())
     return synonyms
 
+def combined_Score(job_description, resume_text):
+    job_keywords = extract_keywords(job_description)
+    resume_keywords = extract_keywords(resume_text)
+    resume_keywords_set = set(resume_keywords)
+
+    intersection_keywords = set(job_keywords) & resume_keywords_set
+    intersection_score = (len(intersection_keywords) / len(job_keywords)) * 100 
+
+    similarity_score = calculate_similarity(job_description, resume_text) * 100
+    combined_score = (intersection_score * 0.7) + (similarity_score * 0.3)
+
+    return intersection_keywords, intersection_score, similarity_score, combined_score
+
+
 
 def compare_resume_with_job(job_description, resume_text):
     job_keywords = extract_keywords(job_description)
     resume_keywords = extract_keywords(resume_text)
-    similarity_score = calculate_similarity(job_description, resume_text)
 
-    matched_keywords = []
-    resume_keywords_set = set(resume_keywords)
+    intersection_keywords, intersection_score, similarity_score, combined_score = combined_Score(job_description, resume_text)
+
+    matched_keywords = list(intersection_keywords)
+
 
     for job_word in job_keywords:
-        if job_word in resume_keywords_set:
-            matched_keywords.append(job_word)
-        else:
+        if job_word not in intersection_keywords:
             job_word_synonyms = get_synonyms(job_word)
-            if job_word_synonyms & resume_keywords_set:
+            if job_word_synonyms & set(resume_keywords):
                 matched_keywords.append(job_word)
 
     matched_keywords = sorted(list(set(matched_keywords)))
+
     return {
         "Matched Keywords": matched_keywords,
-        "Similarity Score": similarity_score * 100
+        "Match Percentage (%)": round(combined_score, 2),
     }
 
 def main():
@@ -123,16 +137,15 @@ def main():
                         phones = extract_phone(resume_text)
 
                         results.append({
-                            "File Name": file,
-                            "Email": email,
-                            "Phone Numbers": ", ".join(phones) if phones else None,
-                            "Similarity Score (%)": round(result['Similarity Score'], 2),
-                            "Matched Keywords": ", ".join(result['Matched Keywords'])
-                            
+                        "File Name": file,
+                        "Email": email,
+                        "Phone Numbers": ", ".join(phones) if phones else None,
+                        "Match Percentage (%)": result['Match Percentage (%)'],
+                        "Matched Keywords": ", ".join(result['Matched Keywords'])
                         })
 
-        results.sort(key=lambda x: x["Similarity Score (%)"], reverse=True)
 
+        results.sort(key=lambda x: x["Match Percentage (%)"], reverse=True)
 
         if results:
             st.subheader("Matching Results")

@@ -1,0 +1,80 @@
+def calculate_intersection_and_combined_score(job_description, resume_text):
+    job_keywords = extract_keywords(job_description)
+    resume_keywords = extract_keywords(resume_text)
+    resume_keywords_set = set(resume_keywords)
+    intersection_keywords = set(job_keywords) & resume_keywords_set
+    intersection_score = len(intersection_keywords) / len(job_keywords) * 10
+    similarity_score = calculate_similarity(job_description, resume_text)
+    combined_score = (0.7 * similarity_score * 100) + (0.3 * intersection_score)
+    return intersection_keywords, intersection_score, similarity_score, combined_score
+
+def compare_resume_with_job(job_description, resume_text):
+    job_keywords = extract_keywords(job_description)
+    resume_keywords = extract_keywords(resume_text)
+
+    # Get the intersection, intersection score, cosine similarity, and combined score
+    intersection_keywords, intersection_score, similarity_score, combined_score = calculate_intersection_and_combined_score(job_description, resume_text)
+
+    # Find matched keywords through synonyms if no direct match
+    matched_keywords = list(intersection_keywords)
+    for job_word in job_keywords:
+        if job_word not in intersection_keywords:
+            job_word_synonyms = get_synonyms(job_word)
+            if job_word_synonyms & set(resume_keywords):
+                matched_keywords.append(job_word)
+
+    matched_keywords = sorted(list(set(matched_keywords)))
+
+    return {
+        "Matched Keywords": matched_keywords,
+        "Similarity Score (%)": round(similarity_score * 100, 2),
+        "Intersection Score (%)": round(intersection_score, 2),
+        "Combined Score (%)": round(combined_score, 2)
+    }
+
+def main():
+    st.set_page_config(page_title="Resume Screening", layout="wide")
+    st.title("Happy Resume Screening :)")
+
+    job_description = st.text_area("Enter the Job Description:", height=200)
+
+    uploaded_zip = st.file_uploader("Upload a ZIP containing Resumes (PDFs):", type="zip")
+
+    if job_description and uploaded_zip:
+        results = []
+        with tempfile.TemporaryDirectory() as temp_dir:
+            zip_path = os.path.join(temp_dir, "resumes.zip")
+            with open(zip_path, "wb") as f:
+                f.write(uploaded_zip.getvalue())
+
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+
+            for root, dirs, files in os.walk(temp_dir):
+                for file in files:
+                    if file.endswith('.pdf'):
+                        pdf_path = os.path.join(root, file)
+                        resume_text = extract_text_from_pdf(pdf_path)
+                        result = compare_resume_with_job(job_description, resume_text)
+                        email = extract_email(resume_text)
+                        phones = extract_phone(resume_text)
+
+                        results.append({
+                            "File Name": file,
+                            "Email": email,
+                            "Phone Numbers": ", ".join(phones) if phones else None,
+                            "Similarity Score (%)": round(result['Similarity Score (%)'], 2),
+                            "Intersection Score (%)": round(result['Intersection Score (%)'], 2),
+                            "Combined Score (%)": round(result['Combined Score (%)'], 2),
+                            "Matched Keywords": ", ".join(result['Matched Keywords'])
+                        })
+
+        results.sort(key=lambda x: x["Combined Score (%)"], reverse=True)
+
+        if results:
+            st.subheader("Matching Results")
+            df = pd.DataFrame(results)
+            st.dataframe(df)
+
+if __name__ == "__main__":
+    main()
