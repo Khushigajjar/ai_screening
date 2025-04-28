@@ -6,23 +6,22 @@ import zipfile
 import tempfile
 import pandas as pd
 import streamlit as st
-import phonenumbers # type:ignore
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
+import phonenumbers # type: ignore
+import spacy
+from nltk.corpus import wordnet
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-def preprocess_text(text):
-    text = text.lower()
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    tokens = text.split()
-    stop_words = set(stopwords.words('english'))
-    tokens = [word for word in tokens if word not in stop_words]
-    lemmatizer = WordNetLemmatizer()
-    tokens = [lemmatizer.lemmatize(word) for word in tokens]
-    return " ".join(tokens)
+nlp = spacy.load("en_core_web_sm")
 
+def preprocess_text(text):
+    doc = nlp(text.lower())
+    tokens = [
+        token.lemma_ for token in doc
+        if not token.is_stop and not token.is_punct and not token.is_space
+    ]
+    return " ".join(tokens)
 
 def extract_text_from_pdf(pdf_path):
     doc = fitz.open(pdf_path)
@@ -31,12 +30,10 @@ def extract_text_from_pdf(pdf_path):
         text += page.get_text()
     return text
 
-
 def extract_email(text):
     pattern = r"[a-zA-Z0-9\._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
     match = re.findall(pattern, text)
     return match[0] if match else None
-
 
 def extract_phone(text):
     phone_numbers = []
@@ -46,7 +43,6 @@ def extract_phone(text):
             formatted = phonenumbers.format_number(number, phonenumbers.PhoneNumberFormat.INTERNATIONAL)
             phone_numbers.append(formatted)
     return phone_numbers if phone_numbers else None
-
 
 def calculate_similarity(job_description, resume_text):
     job_description = preprocess_text(job_description)
@@ -61,8 +57,16 @@ def calculate_similarity(job_description, resume_text):
 
 def extract_keywords(text):
     text = preprocess_text(text)
-    keywords = text.split()
-    return keywords
+    doc = nlp(text)
+    keywords = []
+
+    for token in doc:
+        if token.pos_ in ["NOUN", "PROPN", "VERB"]:
+            if not token.is_stop and not token.is_punct and len(token.text) > 2:
+                keywords.append(token.lemma_.lower())
+
+    return list(set(keywords))
+
 
 
 def get_synonyms(word):
@@ -78,14 +82,12 @@ def combined_Score(job_description, resume_text):
     resume_keywords_set = set(resume_keywords)
 
     intersection_keywords = set(job_keywords) & resume_keywords_set
-    intersection_score = (len(intersection_keywords) / len(job_keywords)) * 100 
+    intersection_score = (len(intersection_keywords) / len(job_keywords)) * 100 if job_keywords else 0
 
     similarity_score = calculate_similarity(job_description, resume_text) * 100
     combined_score = (intersection_score * 0.7) + (similarity_score * 0.3)
 
     return intersection_keywords, intersection_score, similarity_score, combined_score
-
-
 
 def compare_resume_with_job(job_description, resume_text):
     job_keywords = extract_keywords(job_description)
@@ -94,7 +96,6 @@ def compare_resume_with_job(job_description, resume_text):
     intersection_keywords, intersection_score, similarity_score, combined_score = combined_Score(job_description, resume_text)
 
     matched_keywords = list(intersection_keywords)
-
 
     for job_word in job_keywords:
         if job_word not in intersection_keywords:
@@ -106,6 +107,10 @@ def compare_resume_with_job(job_description, resume_text):
 
     return {
         "Matched Keywords": matched_keywords,
+        "job_keywords" : job_keywords,
+        "resume_keywords" : resume_keywords,
+        "intersection_score" : intersection_score,
+        "similarity_score" : similarity_score,
         "Match Percentage (%)": round(combined_score, 2),
     }
 
@@ -131,7 +136,7 @@ def main():
                 if zipfile.is_zipfile(zip_path):
                     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                         zip_ref.extractall(temp_dir)
-                    
+
                     for root, dirs, files in os.walk(temp_dir):
                         for file in files:
                             if file.endswith('.pdf'):
@@ -145,8 +150,12 @@ def main():
                                     "File Name": file,
                                     "Email": email,
                                     "Phone Numbers": ", ".join(phones) if phones else None,
+                                    "similarity_score" : result["similarity_score"],
+                                    "intersection_score" : result["intersection_score"],
                                     "Match Percentage (%)": result['Match Percentage (%)'],
-                                    "Matched Keywords": ", ".join(result['Matched Keywords'])
+                                    "Matched Keywords": ", ".join(result['Matched Keywords']),
+                                    "job_keywords": ", ".join(result['job_keywords']),
+                                    "resume_keywords": ", ".join(result['resume_keywords'])
                                 })
                 else:
                     st.error("Uploaded ZIP file is not valid.")
@@ -165,6 +174,10 @@ def main():
                     "File Name": file_name,
                     "Email": email,
                     "Phone Numbers": ", ".join(phones) if phones else None,
+                    "intersection_score" : result["intersection_score"],
+                    "similarity_score" : result["similarity_score"],
+                    "job_keywords": ", ".join(result['job_keywords']),
+                    "resume_keywords": ", ".join(result['resume_keywords']),
                     "Match Percentage (%)": result['Match Percentage (%)'],
                     "Matched Keywords": ", ".join(result['Matched Keywords'])
                 })

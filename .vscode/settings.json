@@ -8,12 +8,15 @@
         "pdfminer",
         "pdfplumber",
         "phonenumbers",
+        "punct",
+        "punkt",
         "pycparser",
         "pypdfium",
         "pyresparser",
         "stopwords",
         "synsets",
         "Tfidf",
+        "toarray",
         "Vectorizer",
         "wordnet"
     ]
